@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mycalpal}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mycalpal}
+      POSTGRES_DB: ${POSTGRES_DB:-mycalpal}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mycalpal}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-mycalpal}:${POSTGRES_PASSWORD:-mycalpal}@db:5432/${POSTGRES_DB:-mycalpal}
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-1440}
+      USDA_API_KEY: ${USDA_API_KEY:-}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+    # VITE_API_URL intentionally unset — api.js derives it from window.location
+    # so the app works from both localhost and LAN IPs (e.g. phones on wifi).
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/public:/app/public
+
+volumes:
+  db_data:
