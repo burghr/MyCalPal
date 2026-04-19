@@ -29,7 +29,7 @@ services:
       USDA_API_KEY: ${USDA_API_KEY:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     volumes:
       - ./backend/app:/app/app
 
@@ -42,6 +42,9 @@ services:
       - "5173:5173"
     # VITE_API_URL intentionally unset — api.js derives it from window.location
     # so the app works from both localhost and LAN IPs (e.g. phones on wifi).
+    # VITE_API_PORT must match the API's HOST port above.
+    environment:
+      VITE_API_PORT: ${API_PORT:-8000}
     volumes:
       - ./frontend/src:/app/src
       - ./frontend/index.html:/app/index.html

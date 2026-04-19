@@ -1,7 +1,9 @@
 // If VITE_API_URL isn't set, derive the API host from the current page so the
-// app works from phones on the LAN (not just localhost). Assumes API on :8000.
+// app works from phones on the LAN (not just localhost). Port comes from
+// VITE_API_PORT (set via docker-compose) or defaults to 8000.
+const API_PORT = import.meta.env.VITE_API_PORT || '8000'
 const API_URL = import.meta.env.VITE_API_URL
-  || `${window.location.protocol}//${window.location.hostname}:8000`
+  || `${window.location.protocol}//${window.location.hostname}:${API_PORT}`
 
 export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   const headers = { 'Content-Type': 'application/json' }
