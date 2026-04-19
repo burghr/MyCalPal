@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXPIRE_MINUTES: int = 1440
     USDA_API_KEY: str = ""  # https://fdc.nal.usda.gov/api-key-signup.html
+    FATSECRET_CLIENT_ID: str = ""      # https://platform.fatsecret.com/api/
+    FATSECRET_CLIENT_SECRET: str = ""
     ADMIN_EMAIL: str = ""   # email of the designated admin user (grants /admin access)
 
 

@@ -6,6 +6,20 @@ import BarcodeScanner from './BarcodeScanner.jsx'
 import { SERVING_UNITS, formatServing } from '../units'
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack']
+const RECENT_SEARCHES_KEY = 'mcp_recent_searches'
+const RECENT_SEARCHES_MAX = 8
+
+function loadRecentSearches() {
+  try { return JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY)) || [] }
+  catch { return [] }
+}
+function saveRecentSearch(q) {
+  const term = q.trim()
+  if (!term) return
+  const prev = loadRecentSearches().filter(s => s.toLowerCase() !== term.toLowerCase())
+  const next = [term, ...prev].slice(0, RECENT_SEARCHES_MAX)
+  localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next))
+}
 
 function todayISO() {
   const d = new Date()
@@ -38,6 +52,9 @@ export default function AddFood() {
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
+  const [recents, setRecents] = useState([])
+  const [recentSearches, setRecentSearches] = useState(loadRecentSearches())
+  const [searchFocused, setSearchFocused] = useState(false)
   const [offError, setOffError] = useState(null)
   const [searched, setSearched] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -74,17 +91,31 @@ export default function AddFood() {
     protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0,
   })
 
-  const search = async (e) => {
-    e?.preventDefault()
-    if (!query.trim()) return
+  useEffect(() => {
+    if (!token) return
+    apiFetch('/foods/recent', { token }).then(r => setRecents(r || [])).catch(() => {})
+  }, [token])
+
+  const runSearch = async (term) => {
+    if (!term.trim()) return
     setErr('')
     setBusy(true)
+    setSearchFocused(false)
     try {
-      const r = await apiFetch(`/foods/search?q=${encodeURIComponent(query)}`, { token })
+      const r = await apiFetch(`/foods/search?q=${encodeURIComponent(term)}`, { token })
       setResults(r.results || [])
       setOffError(r.off_error || null)
       setSearched(true)
+      saveRecentSearch(term)
+      setRecentSearches(loadRecentSearches())
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  const search = (e) => { e?.preventDefault(); runSearch(query) }
+
+  const pickRecentSearch = (term) => {
+    setQuery(term)
+    runSearch(term)
   }
 
   const pickResult = async (r) => {
@@ -130,6 +161,38 @@ export default function AddFood() {
         const def = ps.find(p => p.label !== '100 g') || ps[0]
         if (def) applyPortionFromObj(def)
       } catch (e) { /* non-fatal */ }
+    }
+
+    // For FatSecret foods, the search result only has macros (no fiber, no portions).
+    // Fetch the detail to get the full nutrient profile and alternate portions.
+    if (r.source === 'fatsecret' && r.fs_food_id) {
+      try {
+        const detail = await apiFetch(`/foods/fatsecret/${r.fs_food_id}`, { token })
+        const df = detail.food
+        // Refresh per-gram density and fields from the richer detail response.
+        const baseG = (df.serving_size_g && df.serving_size_g > 0) ? df.serving_size_g
+          : df.serving_unit === 'g' ? df.serving_amount
+          : df.serving_unit === 'oz' ? df.serving_amount * 28.3495
+          : df.serving_unit === 'ml' ? df.serving_amount
+          : null
+        perG.current = baseG ? {
+          cal: df.calories_per_serving / baseG,
+          p: (df.protein_g || 0) / baseG,
+          c: (df.carbs_g || 0) / baseG,
+          fat: (df.fat_g || 0) / baseG,
+          fib: (df.fiber_g || 0) / baseG,
+        } : null
+        setSelected({ ...r, food: df })
+        setServingAmount(df.serving_amount ?? 1)
+        setServingUnit(df.serving_unit || 'serving')
+        setServingG(df.serving_size_g ?? '')
+        setCals(round1(df.calories_per_serving))
+        setProtein(round1(df.protein_g || 0))
+        setCarbs(round1(df.carbs_g || 0))
+        setFat(round1(df.fat_g || 0))
+        setFiber(round1(df.fiber_g || 0))
+        setPortions(detail.portions || [])
+      } catch (e) { /* non-fatal — we still have the search-result data */ }
     }
   }
 
@@ -273,8 +336,34 @@ export default function AddFood() {
         <>
           <div className="card">
             <form onSubmit={search}>
-              <div className="row">
-                <input placeholder="Search foods…" value={query} onChange={e => setQuery(e.target.value)} />
+              <div className="row" style={{ position: 'relative' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input
+                    placeholder="Search foods…"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                  />
+                  {searchFocused && recentSearches.length > 0 && (
+                    <div style={{
+                      position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
+                      background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6,
+                      marginTop: 4, maxHeight: 240, overflowY: 'auto',
+                    }}>
+                      <div className="muted" style={{ padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}>Recent searches</div>
+                      {recentSearches.map(term => (
+                        <div
+                          key={term}
+                          className="search-result"
+                          onMouseDown={() => pickRecentSearch(term)}
+                        >
+                          {term}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button type="submit" disabled={busy} style={{ flex: '0 0 auto' }}>Search</button>
               </div>
             </form>
@@ -283,6 +372,29 @@ export default function AddFood() {
               <button className="secondary" onClick={() => setManualMode(true)}>Manual Entry</button>
             </div>
           </div>
+
+          {!searched && recents.length > 0 && results.length === 0 && (
+            <div className="card" style={{ padding: 0 }}>
+              <div className="muted" style={{ padding: '0.75rem 1rem 0.4rem', fontSize: '0.85rem' }}>Recent</div>
+              {recents.map((r, i) => (
+                <div key={i} className="search-result" onClick={() => pickResult(r)}>
+                  <div>
+                    {r.food.name}
+                    <span className="badge">
+                      {r.source === 'openfoodfacts' ? 'Open Food Facts'
+                        : r.source === 'usda' ? 'USDA'
+                        : r.source === 'fatsecret' ? 'FatSecret'
+                        : 'Saved'}
+                    </span>
+                  </div>
+                  <div className="muted">
+                    {r.food.brand ? `${r.food.brand} · ` : ''}
+                    {Math.round(r.food.calories_per_serving)} kcal / {formatServing(r.food)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {results.length > 0 && (
             <div className="card" style={{ padding: 0 }}>
@@ -293,6 +405,7 @@ export default function AddFood() {
                     <span className="badge">
                       {r.source === 'openfoodfacts' ? 'Open Food Facts'
                         : r.source === 'usda' ? 'USDA'
+                        : r.source === 'fatsecret' ? 'FatSecret'
                         : 'Saved'}
                     </span>
                   </div>

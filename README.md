@@ -1,19 +1,19 @@
 # MyCalPal
 
-A self-hosted calorie + macro tracker you can run on your phone or desktop. Log meals tagged by breakfast / lunch / dinner / snack, search USDA and Open Food Facts for nutrition, scan barcodes, or enter foods manually. Tracks weight over time, shows a report of goal hit rate, and supports multi-user with an admin role.
+A self-hosted calorie + macro tracker you can run on your phone or desktop. Log meals tagged by breakfast / lunch / dinner / snack, search USDA, FatSecret, and Open Food Facts for nutrition, scan barcodes, or enter foods manually. Tracks weight over time, shows a report of goal hit rate, and supports multi-user with an admin role.
 
 ## Stack
 
 - **Backend:** FastAPI (Python 3.12) + SQLAlchemy 2 + JWT auth
 - **Database:** PostgreSQL 16
 - **Frontend:** React 18 + Vite, mobile-first responsive UI, installable as a PWA, `@zxing/browser` for barcode scanning
-- **Food data:** [USDA FoodData Central](https://fdc.nal.usda.gov/) (free key) + [Open Food Facts](https://world.openfoodfacts.org/) (no key)
+- **Food data:** [USDA FoodData Central](https://fdc.nal.usda.gov/) (free key) + [FatSecret Platform API](https://platform.fatsecret.com/api/) (free Basic tier, optional) + [Open Food Facts](https://world.openfoodfacts.org/) (no key)
 - **Packaging:** Docker Compose (`db`, `api`, `web`)
 
 ## Quick start
 
 ```bash
-cp .env.example .env        # set JWT_SECRET, USDA_API_KEY, ADMIN_EMAIL
+cp .env.example .env        # set JWT_SECRET, USDA_API_KEY, FATSECRET_CLIENT_ID/SECRET, ADMIN_EMAIL
 docker compose up --build
 ```
 
@@ -42,7 +42,9 @@ iOS Safari requires **HTTPS** for camera access, except on `localhost`. Options:
 - Multi-user signup/login with JWT auth; profile page for weight/height/activity/goal
 - Mifflin-St Jeor BMR → suggested calorie goal with manual override
 - Daily meal diary (breakfast/lunch/dinner/snack) with prev/next day nav
-- USDA + Open Food Facts search, with per-portion grams (cup, tbsp, slice, etc.)
+- USDA + FatSecret + Open Food Facts search, ranked so branded per-serving matches surface first
+- Recent-searches dropdown + recently-logged foods shown before you type
+- Per-portion grams (cup, tbsp, slice, etc.) for USDA and FatSecret results
 - Barcode scanning (live camera via zxing)
 - Per-gram auto-scaling when you change the serving size
 - Daily weight log + weight trend chart
@@ -60,9 +62,11 @@ iOS Safari requires **HTTPS** for camera access, except on `localhost`. Options:
 | GET  | `/auth/me` | Current user |
 | PATCH | `/auth/me` | Update profile |
 | POST | `/auth/me/password` | Change own password |
-| GET  | `/foods/search?q=` | Search USDA + local + Open Food Facts |
+| GET  | `/foods/search?q=` | Search USDA + FatSecret + local + Open Food Facts |
+| GET  | `/foods/recent` | Most-recently-logged distinct foods for the user |
 | GET  | `/foods/usda/{fdc_id}` | USDA food + available portions |
-| GET  | `/foods/barcode/{code}` | Lookup barcode (local first, then OFF) |
+| GET  | `/foods/fatsecret/{food_id}` | FatSecret food with full nutrients + portions |
+| GET  | `/foods/barcode/{code}` | Lookup barcode (local → FatSecret → OFF) |
 | POST | `/foods` | Create / upsert a food |
 | POST | `/logs` | Log a food entry |
 | GET  | `/logs/day?date=YYYY-MM-DD` | Daily summary grouped by meal |
