@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import re
 import time
@@ -454,7 +455,12 @@ async def search_foods(
     # is the least reliable).
     scored: list[tuple[int, dict]] = []
 
-    usda_results, usda_error = await _usda_search(q)
+    (usda_results, usda_error), (fs_results, fs_error), (off_results, off_error) = await asyncio.gather(
+        _usda_search(q),
+        _fatsecret_search(q),
+        _off_search(q),
+    )
+
     for r in usda_results:
         scored.append((_score_food(r["food"], q), {
             "source": "usda",
@@ -463,7 +469,6 @@ async def search_foods(
             "fdc_id": r["fdc_id"],
         }))
 
-    fs_results, fs_error = await _fatsecret_search(q)
     for r in fs_results:
         scored.append((_score_food(r["food"], q), {
             "source": "fatsecret",
@@ -486,7 +491,6 @@ async def search_foods(
             {"source": f.source, "food": FoodOut.model_validate(f).model_dump(), "local_id": f.id}
         )
 
-    off_results, off_error = await _off_search(q)
     for m in off_results:
         results.append({"source": "openfoodfacts", "food": m, "local_id": None})
 
