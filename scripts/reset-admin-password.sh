@@ -3,17 +3,28 @@
 # Run from the MyCalPal project root (where docker-compose.yml lives).
 #
 # Usage:
-#   ./scripts/reset-admin-password.sh              # prompts for password
-#   ./scripts/reset-admin-password.sh 'new-pass'   # password on CLI
+#   ./scripts/reset-admin-password.sh                       # prompts for both
+#   ./scripts/reset-admin-password.sh <email>               # prompts for password
+#   ./scripts/reset-admin-password.sh <email> '<password>'  # no prompts
 
 set -euo pipefail
 
-EMAIL="${EMAIL:-bryantvan@gmail.com}"
 DB_USER="${POSTGRES_USER:-mycalpal}"
 DB_NAME="${POSTGRES_DB:-mycalpal}"
 
 if [[ $# -ge 1 ]]; then
-  NEW_PASSWORD="$1"
+  EMAIL="$1"
+else
+  read -r -p "User email: " EMAIL
+fi
+
+if [[ -z "${EMAIL:-}" ]]; then
+  echo "Email cannot be empty." >&2
+  exit 1
+fi
+
+if [[ $# -ge 2 ]]; then
+  NEW_PASSWORD="$2"
 else
   read -r -s -p "New password for $EMAIL: " NEW_PASSWORD
   echo
