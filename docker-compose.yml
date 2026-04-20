@@ -30,6 +30,8 @@ services:
       FATSECRET_CLIENT_ID: ${FATSECRET_CLIENT_ID:-}
       FATSECRET_CLIENT_SECRET: ${FATSECRET_CLIENT_SECRET:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      CORS_ORIGIN_REGEX: ${CORS_ORIGIN_REGEX:-}
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:

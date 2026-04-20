@@ -27,7 +27,10 @@ Sign up with email + password (min 8 chars) and start logging. The user whose em
 
 The frontend derives the API URL from `window.location`, so both localhost and LAN access work out of the box.
 
-1. Find your machine's LAN IP (`ipconfig getifaddr en0` on macOS).
+1. Find your machine's LAN IP:
+   - **macOS:** `ipconfig getifaddr en0` (or `en1` for Wi-Fi on some models)
+   - **Linux:** `hostname -I` or `ip -4 addr show | grep inet`
+   - **Windows:** `ipconfig` (look for "IPv4 Address")
 2. On the phone (same Wi-Fi) open `http://<YOUR_IP>:5173`.
 3. In iOS Safari: Share → **Add to Home Screen** to install as a PWA.
 
