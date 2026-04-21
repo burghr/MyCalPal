@@ -32,6 +32,12 @@ services:
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
       CORS_ORIGIN_REGEX: ${CORS_ORIGIN_REGEX:-}
+      AUTH_MODE: ${AUTH_MODE:-local}
+      SSO_HEADER_USERNAME: ${SSO_HEADER_USERNAME:-X-authentik-username}
+      SSO_HEADER_EMAIL: ${SSO_HEADER_EMAIL:-X-authentik-email}
+      SSO_HEADER_NAME: ${SSO_HEADER_NAME:-X-authentik-name}
+      SSO_HEADER_GROUPS: ${SSO_HEADER_GROUPS:-X-authentik-groups}
+      SSO_ADMIN_GROUP: ${SSO_ADMIN_GROUP:-}
     ports:
       - "${API_PORT:-8000}:8000"
     volumes:
