@@ -4,6 +4,8 @@ import { apiFetch } from './api'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
+  const [mode, setMode] = useState(null)   // 'local' | 'sso' — null until /auth/config resolves
+  const [ready, setReady] = useState(false)
   const [token, setToken] = useState(() => localStorage.getItem('token'))
   const [user, setUser] = useState(() => {
     const raw = localStorage.getItem('user')
@@ -19,6 +21,33 @@ export function AuthProvider({ children }) {
     if (user) localStorage.setItem('user', JSON.stringify(user))
     else localStorage.removeItem('user')
   }, [user])
+
+  // On mount: discover auth mode, and in SSO mode pull the user from forward-auth headers.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      let resolvedMode = 'local'
+      try {
+        const cfg = await apiFetch('/auth/config')
+        resolvedMode = cfg?.mode === 'sso' ? 'sso' : 'local'
+      } catch {
+        // Backend unreachable — fall back to local so the login form can still render.
+      }
+      if (cancelled) return
+      setMode(resolvedMode)
+
+      if (resolvedMode === 'sso') {
+        try {
+          const me = await apiFetch('/auth/me')
+          if (!cancelled) setUser(me)
+        } catch {
+          // Not authenticated yet; the outpost will redirect to Authentik on next nav.
+        }
+      }
+      if (!cancelled) setReady(true)
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   const login = async (email, password) => {
     const res = await apiFetch('/auth/login', { method: 'POST', body: { email, password } })
@@ -38,12 +67,17 @@ export function AuthProvider({ children }) {
   const updateUser = (u) => setUser(u)
 
   const logout = () => {
+    if (mode === 'sso') {
+      // End the Authentik proxy session too, otherwise the next request silently re-auths.
+      window.location.href = '/outpost.goauthentik.io/sign_out'
+      return
+    }
     setToken(null)
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ token, user, login, signup, logout, updateUser }}>
+    <AuthContext.Provider value={{ mode, ready, token, user, login, signup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

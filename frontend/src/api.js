@@ -11,6 +11,9 @@ export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
+    // Include cookies so the Authentik forward-auth session carries cross-subdomain
+    // (app <-> api). Harmless in local auth mode — no cookies are set there.
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {

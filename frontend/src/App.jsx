@@ -10,8 +10,16 @@ import Profile from './components/Profile.jsx'
 import Admin from './components/Admin.jsx'
 
 function Protected({ children }) {
-  const { token } = useAuth()
-  return token ? children : <Navigate to="/login" replace />
+  const { token, user, mode, ready } = useAuth()
+  if (!ready) return null
+  const authed = mode === 'sso' ? !!user : !!token
+  return authed ? children : <Navigate to="/login" replace />
+}
+
+function LocalOnly({ children }) {
+  const { mode, ready } = useAuth()
+  if (!ready) return null
+  return mode === 'sso' ? <Navigate to="/" replace /> : children
 }
 
 function Nav() {
@@ -39,8 +47,8 @@ export default function App() {
     <>
       <Nav />
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
+        <Route path="/login" element={<LocalOnly><Login /></LocalOnly>} />
+        <Route path="/signup" element={<LocalOnly><Signup /></LocalOnly>} />
         <Route path="/" element={<Protected><Dashboard /></Protected>} />
         <Route path="/add" element={<Protected><AddFood /></Protected>} />
         <Route path="/logs/:id" element={<Protected><EditLog /></Protected>} />
